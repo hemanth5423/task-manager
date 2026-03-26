@@ -10,15 +10,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ MongoDB Connection
+// ================= MONGODB CONNECTION ================= //
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.log("❌ DB Error:", err));
+  .catch((err) => {
+    console.error("❌ MongoDB Error:", err.message);
+  });
 
-// ✅ Task Schema
+// ================= SCHEMA ================= //
+
 const taskSchema = new mongoose.Schema({
-  title: String,
+  title: {
+    type: String,
+    required: true,
+  },
   completed: {
     type: Boolean,
     default: false,
@@ -29,42 +36,57 @@ const Task = mongoose.model("Task", taskSchema);
 
 // ================= ROUTES ================= //
 
-// ✅ Root route (VERY IMPORTANT)
+// ✅ Root route (to avoid "Not Found")
 app.get("/", (req, res) => {
-  res.send("🚀 Backend is running successfully!");
+  res.send("🚀 Backend is running!");
 });
 
 // ✅ Get all tasks
 app.get("/tasks", async (req, res) => {
-  const tasks = await Task.find();
-  res.json(tasks);
+  try {
+    const tasks = await Task.find();
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ✅ Add new task
+// ✅ Add task
 app.post("/tasks", async (req, res) => {
-  const newTask = new Task({
-    title: req.body.title,
-  });
+  try {
+    const task = new Task({
+      title: req.body.title,
+    });
 
-  const savedTask = await newTask.save();
-  res.json(savedTask);
+    const saved = await task.save();
+    res.json(saved);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ✅ Update task
 app.put("/tasks/:id", async (req, res) => {
-  const updatedTask = await Task.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true }
-  );
-
-  res.json(updatedTask);
+  try {
+    const updated = await Task.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ✅ Delete task
 app.delete("/tasks/:id", async (req, res) => {
-  await Task.findByIdAndDelete(req.params.id);
-  res.json({ message: "Task deleted" });
+  try {
+    await Task.findByIdAndDelete(req.params.id);
+    res.json({ message: "Task deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ================= SERVER ================= //
