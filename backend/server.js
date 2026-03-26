@@ -1,98 +1,76 @@
-require("dotenv").config();
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
 const app = express();
-
-// ✅ Middleware
 app.use(cors());
 app.use(express.json());
 
-// ================= MONGODB CONNECTION ================= //
+// 🔥 DEBUG LOG
+console.log("🚀 Server starting...");
 
+// ✅ MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB Error:", err.message);
-  });
+  .catch((err) => console.log("❌ MongoDB Error:", err));
 
-// ================= SCHEMA ================= //
-
+// ✅ Schema
 const taskSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-  },
-  completed: {
-    type: Boolean,
-    default: false,
-  },
+  text: String,
+  completed: Boolean,
 });
 
 const Task = mongoose.model("Task", taskSchema);
 
-// ================= ROUTES ================= //
-
-// ✅ Root route (to avoid "Not Found")
+// ✅ ROOT ROUTE
 app.get("/", (req, res) => {
-  res.send("🚀 Backend is running!");
+  res.send("🚀 Backend is running");
 });
 
-// ✅ Get all tasks
+// ✅ GET TASKS
 app.get("/tasks", async (req, res) => {
   try {
+    console.log("📥 GET /tasks called");
+
     const tasks = await Task.find();
+
+    console.log("📦 Tasks:", tasks);
+
     res.json(tasks);
   } catch (err) {
+    console.log("❌ ERROR in GET /tasks:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ Add task
+// ✅ ADD TASK
 app.post("/tasks", async (req, res) => {
   try {
-    const task = new Task({
-      title: req.body.title,
+    console.log("📥 POST /tasks:", req.body);
+
+    const newTask = new Task({
+      text: req.body.text,
+      completed: false,
     });
 
-    const saved = await task.save();
-    res.json(saved);
+    await newTask.save();
+
+    res.json(newTask);
   } catch (err) {
+    console.log("❌ ERROR in POST /tasks:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ Update task
-app.put("/tasks/:id", async (req, res) => {
-  try {
-    const updated = await Task.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ✅ Delete task
-app.delete("/tasks/:id", async (req, res) => {
-  try {
-    await Task.findByIdAndDelete(req.params.id);
-    res.json({ message: "Task deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ================= SERVER ================= //
-
+// ✅ PORT
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
+
+
+
+
