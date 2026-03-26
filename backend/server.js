@@ -1,76 +1,55 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
+
+// middleware
 app.use(cors());
 app.use(express.json());
 
-// 🔥 DEBUG LOG
-console.log("🚀 Server starting...");
-
-// ✅ MongoDB connection
+// ✅ MongoDB connect
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.log("❌ MongoDB Error:", err));
+  .catch((err) => console.log("❌ Mongo Error:", err));
 
 // ✅ Schema
 const taskSchema = new mongoose.Schema({
   text: String,
-  completed: Boolean,
 });
 
 const Task = mongoose.model("Task", taskSchema);
 
-// ✅ ROOT ROUTE
+// ✅ TEST ROUTE
 app.get("/", (req, res) => {
-  res.send("🚀 Backend is running");
+  res.send("Backend is running 🚀");
 });
 
-// ✅ GET TASKS
+// ✅ GET tasks
 app.get("/tasks", async (req, res) => {
   try {
-    console.log("📥 GET /tasks called");
-
     const tasks = await Task.find();
-
-    console.log("📦 Tasks:", tasks);
-
     res.json(tasks);
   } catch (err) {
-    console.log("❌ ERROR in GET /tasks:", err);
+    console.log("❌ GET ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ ADD TASK
+// ✅ POST task
 app.post("/tasks", async (req, res) => {
   try {
-    console.log("📥 POST /tasks:", req.body);
-
-    const newTask = new Task({
-      text: req.body.text,
-      completed: false,
-    });
-
-    await newTask.save();
-
-    res.json(newTask);
+    const newTask = new Task({ text: req.body.text });
+    const saved = await newTask.save();
+    res.json(saved);
   } catch (err) {
-    console.log("❌ ERROR in POST /tasks:", err);
+    console.log("❌ POST ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ✅ PORT
 const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-
-
-
-
+app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
