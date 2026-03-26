@@ -1,104 +1,114 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ================= MONGODB =================
+// ================= DB =================
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.log("❌ MongoDB Error:", err));
+  .catch(err => console.log("❌ DB Error:", err));
 
-// ================= SCHEMA =================
-const UserSchema = new mongoose.Schema({
+// ================= MODELS =================
+const User = mongoose.model("User", {
   email: String,
   password: String,
 });
 
-const TaskSchema = new mongoose.Schema({
+const Task = mongoose.model("Task", {
   title: String,
   completed: { type: Boolean, default: false },
+  userId: String,
 });
 
-const User = mongoose.model("User", UserSchema);
-const Task = mongoose.model("Task", TaskSchema);
+// ================= AUTH =================
+const auth = (req, res, next) => {
+  const token = req.headers.authorization;
+
+  if (!token) return res.status(401).json({ message: "No token" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret123");
+    req.userId = decoded.userId;
+    next();
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
 
 // ================= ROUTES =================
 
-// 👉 Register
+// REGISTER
 app.post("/register", async (req, res) => {
   try {
-    console.log("Register body:", req.body);
-
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.json({ message: "Email & password required" });
-    }
+    const existing = await User.findOne({ email });
+    if (existing) return res.json({ message: "User already exists" });
 
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      return res.json({ message: "User already exists" });
-    }
-
-    const newUser = new User({ email, password });
-    await newUser.save();
+    await new User({ email, password }).save();
 
     res.json({ message: "Registered successfully" });
   } catch (err) {
-    console.log("Register error:", err);
-    res.status(500).json({ message: "Registration failed", error: err.message });
+    res.status(500).json({ message: "Register failed" });
   }
 });
 
-// 👉 Login
+// LOGIN
 app.post("/login", async (req, res) => {
   try {
-    console.log("Login body:", req.body);
-
     const { email, password } = req.body;
 
     const user = await User.findOne({ email, password });
 
-    if (!user) {
-      return res.json({ message: "Invalid credentials" });
-    }
+    if (!user) return res.json({ message: "Invalid credentials" });
 
-    // Simple token
-    res.json({ token: "dummy-token" });
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET || "secret123"
+    );
+
+    res.json({ token });
   } catch (err) {
-    console.log("Login error:", err);
     res.status(500).json({ message: "Login failed" });
   }
 });
 
-// 👉 Get Tasks
-app.get("/tasks", async (req, res) => {
-  try {
-    const tasks = await Task.find();
-    res.json(tasks);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
-  }
+// GET TASKS
+app.get("/tasks", auth, async (req, res) => {
+  const tasks = await Task.find({ userId: req.userId });
+  res.json(tasks);
 });
 
-// 👉 Add Task
-app.post("/tasks", async (req, res) => {
-  try {
-    const task = new Task({ title: req.body.title });
-    await task.save();
-    res.json(task);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
-  }
+// ADD TASK
+app.post("/tasks", auth, async (req, res) => {
+  const task = await new Task({
+    title: req.body.title,
+    userId: req.userId,
+  }).save();
+
+  res.json(task);
+});
+
+// DELETE TASK
+app.delete("/tasks/:id", auth, async (req, res) => {
+  await Task.findByIdAndDelete(req.params.id);
+  res.json({ message: "Deleted" });
+});
+
+// TOGGLE COMPLETE
+app.put("/tasks/:id", auth, async (req, res) => {
+  const task = await Task.findById(req.params.id);
+
+  task.completed = !task.completed;
+  await task.save();
+
+  res.json(task);
 });
 
 // ================= SERVER =================
