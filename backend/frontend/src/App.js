@@ -1,195 +1,179 @@
-import React, { useEffect, useState } from "react";
-
-const API = "https://task-manager-63ey.onrender.com";
+import React, { useState, useEffect } from "react";
 
 function App() {
   const [tasks, setTasks] = useState([]);
   const [text, setText] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Fetch tasks
+  const API_URL = "https://task-manager-63ey.onrender.com";
+
+  // ================= FETCH TASKS =================
   const fetchTasks = async () => {
     try {
-      const res = await fetch(`${API}/tasks`);
+      const res = await fetch(`${API_URL}/tasks`);
       const data = await res.json();
+
+      console.log("Tasks:", data);
+
       setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch tasks error:", err);
+      alert("Failed to fetch tasks");
+      setTasks([]);
     }
   };
 
-  // Add task
+  // ================= ADD TASK =================
   const addTask = async () => {
-    if (!text.trim()) return;
+    if (!text) return;
 
-    const res = await fetch(`${API}/tasks`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ title: text }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/tasks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: text }),
+      });
 
-    const data = await res.json();
-    setTasks([...tasks, data]);
-    setText("");
+      const data = await res.json();
+      console.log("Add task:", data);
+
+      setText("");
+      fetchTasks();
+    } catch (err) {
+      console.error("Add task error:", err);
+      alert("Failed to add task");
+    }
   };
 
-  // Delete task
-  const deleteTask = async (id) => {
-    await fetch(`${API}/tasks/${id}`, {
-      method: "DELETE",
-    });
+  // ================= REGISTER =================
+  const register = async () => {
+    try {
+      const res = await fetch(`${API_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    setTasks(tasks.filter((t) => t._id !== id));
+      console.log("Register status:", res.status);
+
+      const data = await res.json();
+      console.log("Register response:", data);
+
+      alert(data.message || "Registered successfully!");
+    } catch (err) {
+      console.error("Register error:", err);
+      alert("Register failed");
+    }
   };
 
-  // Toggle complete
-  const toggleTask = async (id) => {
-    const res = await fetch(`${API}/tasks/${id}`, {
-      method: "PUT",
-    });
+  // ================= LOGIN =================
+  const login = async () => {
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const updated = await res.json();
+      console.log("Login status:", res.status);
 
-    setTasks(tasks.map((t) => (t._id === id ? updated : t)));
+      const data = await res.json();
+      console.log("Login response:", data);
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setIsLoggedIn(true);
+        fetchTasks();
+      } else {
+        alert(data.message || "Login failed");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      alert("Login failed");
+    }
   };
 
-  // Edit task
-  const editTask = async (id, oldText) => {
-    const newText = prompt("Edit task:", oldText);
-    if (!newText) return;
-
-    const res = await fetch(`${API}/tasks/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ title: newText }),
-    });
-
-    const updated = await res.json();
-
-    setTasks(tasks.map((t) => (t._id === id ? updated : t)));
+  // ================= LOGOUT =================
+  const logout = () => {
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+    setTasks([]);
   };
 
+  // ================= AUTO LOGIN =================
   useEffect(() => {
-    fetchTasks();
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsLoggedIn(true);
+      fetchTasks();
+    }
   }, []);
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>🚀 Task Manager</h1>
+  // ================= UI =================
 
-      {/* Input */}
-      <div style={styles.inputBox}>
+  if (!isLoggedIn) {
+    return (
+      <div style={{ textAlign: "center", marginTop: "100px" }}>
+        <h1>🔐 Login / Register</h1>
+
         <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Enter task..."
-          style={styles.input}
+          type="email"
+          placeholder="Enter email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
-        <button onClick={addTask} style={styles.addBtn}>
-          Add
+        <br /><br />
+
+        <input
+          type="password"
+          placeholder="Enter password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <br /><br />
+
+        <button onClick={login}>Login</button>
+        <button onClick={register} style={{ marginLeft: "10px" }}>
+          Register
         </button>
       </div>
+    );
+  }
 
-      <p>Total Tasks: {tasks.length}</p>
+  return (
+    <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <h1>Task Manager 🚀</h1>
 
-      {/* Task list */}
-      <div style={styles.list}>
+      <button onClick={logout} style={{ marginBottom: "20px" }}>
+        Logout
+      </button>
+
+      <br />
+
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Enter task..."
+      />
+      <button onClick={addTask}>Add</button>
+
+      <h3>Total Tasks: {tasks.length}</h3>
+
+      <ul style={{ listStyle: "none" }}>
         {tasks.map((task) => (
-          <div key={task._id} style={styles.card}>
-            <span
-              onClick={() => toggleTask(task._id)}
-              style={{
-                ...styles.text,
-                textDecoration: task.completed ? "line-through" : "none",
-              }}
-            >
-              {task.title}
-            </span>
-
-            <div>
-              <button
-                onClick={() => editTask(task._id, task.title)}
-                style={styles.editBtn}
-              >
-                ✏️
-              </button>
-
-              <button
-                onClick={() => deleteTask(task._id)}
-                style={styles.deleteBtn}
-              >
-                ❌
-              </button>
-            </div>
-          </div>
+          <li key={task._id}>{task.title}</li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
-
-// Styles
-const styles = {
-  container: {
-    textAlign: "center",
-    marginTop: "50px",
-    fontFamily: "Arial",
-  },
-  title: {
-    marginBottom: "20px",
-  },
-  inputBox: {
-    marginBottom: "20px",
-  },
-  input: {
-    padding: "10px",
-    width: "220px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-  },
-  addBtn: {
-    padding: "10px 15px",
-    marginLeft: "10px",
-    background: "green",
-    color: "white",
-    border: "none",
-    borderRadius: "5px",
-  },
-  list: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  card: {
-    background: "#f4f4f4",
-    padding: "12px",
-    margin: "10px",
-    width: "320px",
-    display: "flex",
-    justifyContent: "space-between",
-    borderRadius: "8px",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-  },
-  text: {
-    cursor: "pointer",
-  },
-  editBtn: {
-    marginRight: "5px",
-    background: "orange",
-    border: "none",
-    padding: "5px 8px",
-    borderRadius: "5px",
-  },
-  deleteBtn: {
-    background: "red",
-    color: "white",
-    border: "none",
-    padding: "5px 8px",
-    borderRadius: "5px",
-  },
-};
 
 export default App;
